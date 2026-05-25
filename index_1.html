@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Vino — Wine Payment Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--navy:#1C2B3A;--navy-light:#2C3E50;--gold:#C9933A;--gold-light:#E8B96A;--cream:#F8F4EE;--cream-dark:#EDE8DF;--white:#FFFFFF;--text:#1C2B3A;--text-muted:#7A8694;--border:rgba(28,43,58,0.12);--border-strong:rgba(28,43,58,0.22);--red:#C0392B;--red-bg:#FDEDEC;--amber:#B7770D;--amber-bg:#FEF5E7;--green:#1E7E55;--green-bg:#E8F8F0;--blue:#1A5F9E;--blue-bg:#EAF2FB;--shadow:0 2px 16px rgba(28,43,58,0.08);--shadow-md:0 4px 24px rgba(28,43,58,0.12)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh}
+.layout{display:flex;min-height:100vh}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(28,43,58,0.5);z-index:98}
+.sidebar-overlay.open{display:block}
+.sidebar{width:265px;background:var(--navy);color:var(--white);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:99;transform:translateX(-100%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1)}
+.sidebar.open{transform:translateX(0)}
+.sidebar-logo{padding:1.5rem;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between}
+.logo-word{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;color:var(--gold-light);letter-spacing:0.04em}
+.logo-sub{font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:0.1em;text-transform:uppercase;margin-top:2px}
+.sidebar-close{background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;padding:6px;border-radius:6px;line-height:0}
+.sidebar-close:hover{color:#fff;background:rgba(255,255,255,0.1)}
+.nav{flex:1;padding:0.75rem 0;overflow-y:auto}
+.nav-section{font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(255,255,255,0.3);padding:1rem 1.5rem 0.35rem;margin-top:0.25rem}
+.nav-item{display:flex;align-items:center;gap:11px;padding:11px 1.5rem;font-size:14px;color:rgba(255,255,255,0.65);cursor:pointer;border-left:3px solid transparent;transition:all 0.15s;user-select:none}
+.nav-item:hover{color:#fff;background:rgba(255,255,255,0.06)}
+.nav-item.active{color:#fff;background:rgba(201,147,58,0.15);border-left:3px solid var(--gold);font-weight:500}
+.nav-item svg{width:17px;height:17px;opacity:0.7;flex-shrink:0}
+.nav-item.active svg{opacity:1}
+.sidebar-footer{padding:1rem 1.5rem;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:rgba(255,255,255,0.3)}
+.main{margin-left:0;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:0 1rem;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.hamburger{background:none;border:none;cursor:pointer;padding:7px;border-radius:8px;display:flex;flex-direction:column;gap:5px}
+.hamburger:hover{background:var(--cream)}
+.hamburger span{display:block;width:20px;height:2px;background:var(--navy);border-radius:2px}
+.topbar-title{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600;color:var(--navy)}
+.topbar-right{display:flex;gap:8px}
+.content{padding:1.25rem;flex:1}
+.page{display:none}.page.active{display:block}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border-strong);background:var(--white);color:var(--text);transition:all 0.15s;font-family:'DM Sans',sans-serif;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--cream)}
+.btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}.btn-primary:hover{background:var(--navy-light)}
+.btn-gold{background:var(--gold);color:#fff;border-color:var(--gold)}.btn-gold:hover{opacity:0.9}
+.btn-green{background:var(--green);color:#fff;border-color:var(--green)}.btn-green:hover{opacity:0.9}
+.btn-whatsapp{background:#25D366;color:#fff;border-color:#25D366}.btn-whatsapp:hover{background:#1ebe5d}
+.btn-sm{padding:5px 10px;font-size:12px}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:1.25rem}
+.stat-card{background:var(--white);border-radius:10px;padding:1rem;border:1px solid var(--border)}
+.stat-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px}
+.stat-value{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;line-height:1}
+.stat-sub{font-size:11px;color:var(--text-muted);margin-top:4px}
+.stat-value.navy{color:var(--navy)}.stat-value.amber{color:var(--amber)}.stat-value.red{color:var(--red)}.stat-value.green{color:var(--green)}
+.card{background:var(--white);border-radius:10px;border:1px solid var(--border);overflow:hidden;margin-bottom:1.25rem}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:0.875rem 1rem;border-bottom:1px solid var(--border)}
+.card-title{font-size:13px;font-weight:500;color:var(--navy)}
+.card-body{padding:1rem}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px 1rem;font-size:10px;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted);background:var(--cream);border-bottom:1px solid var(--border)}
+td{padding:10px 1rem;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#FAFAF8}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-overdue{background:var(--red-bg);color:var(--red)}.badge-pending{background:var(--amber-bg);color:var(--amber)}.badge-paid{background:var(--green-bg);color:var(--green)}.badge-fr{background:#EAF2FB;color:#1A5F9E}.badge-sg{background:#E8F8F0;color:#1E7E55}.badge-sg-hold{background:var(--amber-bg);color:var(--amber)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(28,43,58,0.45);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--white);border-radius:14px;width:96vw;max-width:620px;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-md)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--white);z-index:10}
+.modal-title{font-size:14px;font-weight:500;color:var(--navy)}
+.modal-body{padding:1.25rem}
+.modal-footer{padding:0.875rem 1.25rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--white)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.form-row.full{grid-template-columns:1fr}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:11px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em}
+.form-group input,.form-group select,.form-group textarea{padding:8px 10px;border-radius:7px;border:1px solid var(--border-strong);background:var(--white);font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;transition:border 0.15s}
+.form-group input:focus,.form-group select:focus{border-color:var(--gold)}
+.form-group input[readonly]{background:var(--cream);color:var(--text-muted)}
+.upload-zone{border:2px dashed var(--border-strong);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;transition:all 0.15s;background:var(--cream);margin-bottom:1rem}
+.upload-zone:hover{border-color:var(--gold);background:var(--cream-dark)}
+.upload-zone.has-file{border-color:var(--green);background:var(--green-bg)}
+.upload-zone.parsing{border-color:var(--blue);background:var(--blue-bg)}
+.upload-icon{font-size:28px;margin-bottom:0.5rem;display:block}
+.upload-label{font-size:13px;font-weight:500;color:var(--navy);margin-bottom:3px}
+.upload-sub{font-size:12px;color:var(--text-muted)}
+.parsed-box{background:var(--blue-bg);border-radius:8px;padding:0.875rem 1rem;margin-bottom:1rem;border-left:3px solid var(--blue);display:none}
+.parsed-title{font-size:11px;font-weight:500;color:var(--blue);margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.parsed-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.parsed-item label{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);display:block}
+.parsed-item value{font-size:12px;font-weight:500;color:var(--navy);display:block}
+.followup-row{display:flex;align-items:flex-start;justify-content:space-between;padding:0.875rem 1rem;border-bottom:1px solid var(--border);gap:0.75rem}
+.followup-row:last-child{border-bottom:none}
+.followup-name{font-size:13px;font-weight:500;color:var(--navy)}
+.followup-detail{font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.5}
+.followup-actions{display:flex;gap:6px;flex-shrink:0}
+.email-box{background:var(--cream);border-radius:8px;padding:1rem;font-size:12.5px;line-height:1.75;color:var(--text-muted);border-left:3px solid var(--navy)}
+.email-box strong{color:var(--text)}
+.email-wine-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:11px}
+.email-wine-table th{background:var(--cream-dark);padding:5px 8px;text-align:left;font-weight:500;color:var(--navy);border:1px solid var(--border-strong)}
+.email-wine-table td{padding:5px 8px;border:1px solid var(--border);color:var(--text)}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;flex-shrink:0}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.25rem;gap:0.75rem}
+.page-title{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:600;color:var(--navy);line-height:1.1}
+.page-sub{font-size:12px;color:var(--text-muted);margin-top:3px}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.25rem;overflow-x:auto}
+.tab{padding:8px 14px;font-size:12px;cursor:pointer;color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab.active{color:var(--navy);border-bottom:2px solid var(--gold);font-weight:500}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--navy);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;z-index:999;box-shadow:var(--shadow-md);transform:translateY(80px);opacity:0;transition:all 0.3s}
+.toast.show{transform:translateY(0);opacity:1}
+.progress{height:4px;background:var(--cream-dark);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;border-radius:2px;transition:width 0.5s}
+.section-divider{font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin:1rem 0 0.6rem;padding-bottom:0.5rem;border-bottom:1px solid var(--border)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(26,95,158,0.2);border-top-color:var(--blue);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:-3px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ai-badge{display:inline-flex;align-items:center;gap:4px;background:#EAF2FB;color:#1A5F9E;font-size:10px;font-weight:500;padding:2px 7px;border-radius:10px}
+.client-emails{font-size:11px;color:var(--text-muted);margin-top:2px}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeMenu()"></div>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div><div class="logo-word">Vino</div><div class="logo-sub">Wine RL Tracker</div></div>
+    <button class="sidebar-close" onclick="closeMenu()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="nav">
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" data-page="dashboard" onclick="nav('dashboard',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard
+    </div>
+    <div class="nav-item" onclick="nav('invoices',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>Invoices
+    </div>
+    <div class="nav-item" data-page="followup" onclick="nav('followup',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>Follow-ups
+      <span style="margin-left:auto;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px" id="followup-badge">3</span>
+    </div>
+    <div class="nav-section">Inventory</div>
+    <div class="nav-item" onclick="nav('inventory',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>Wine Stock
+    </div>
+    <div class="nav-item" onclick="nav('clients',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Clients
+    </div>
+    <div class="nav-section">Reports</div>
+    <div class="nav-item" onclick="nav('export',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export
+    </div>
+    <div class="nav-section">Settings</div>
+    <div class="nav-item" onclick="nav('settings',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings
+    </div>
+  </div>
+  <div class="sidebar-footer">victor@winerl.com · Wine RL</div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="hamburger" onclick="openMenu()" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-invoice')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Upload PDF
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div><div class="page-title">Good morning 👋</div><div class="page-sub">Monday 25 May 2026 — 3 clients to follow up</div></div>
+        <button class="btn btn-gold btn-sm" onclick="nav('followup',document.querySelector('[data-page=followup]'))">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Follow-ups
+        </button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Total invoiced</div><div class="stat-value navy">€49,230</div><div class="stat-sub">5 invoices</div></div>
+        <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value amber">€22,450</div><div class="stat-sub">3 invoices</div></div>
+        <div class="stat-card"><div class="stat-label">Overdue</div><div class="stat-value red">€12,400</div><div class="stat-sub">1 invoice</div></div>
+        <div class="stat-card"><div class="stat-label">Collected</div><div class="stat-value green">€14,380</div><div class="stat-sub">2 paid</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">Requires action</span></div>
+        <table>
+          <thead><tr><th>Client</th><th>CC Ref</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar">WC</div>Wine Clique</div></td><td style="color:var(--text-muted)">CC202605/409</td><td style="font-weight:500">€1,000</td><td><span class="badge badge-pending">Pending</span></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar" style="background:#2C5E8A">CC</div>Corndale</div></td><td style="color:var(--text-muted)">CC202604/312</td><td style="font-weight:500">€12,400</td><td><span class="badge badge-overdue">Overdue</span></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar" style="background:#5B4A8A">AN</div>Angevin</div></td><td style="color:var(--text-muted)">CC202604/298</td><td style="font-weight:500">€8,900</td><td><span class="badge badge-pending">Pending</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">Stock overview</span></div>
+        <div class="card-body">
+          <div style="margin-bottom:1rem"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span>🇫🇷 France</span><strong>738 btl</strong></div><div class="progress"><div class="progress-fill" style="width:78%;background:var(--blue)"></div></div></div>
+          <div style="margin-bottom:1rem"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span>🇸🇬 SG — delivered</span><strong>155 btl</strong></div><div class="progress"><div class="progress-fill" style="width:16%;background:var(--green)"></div></div></div>
+          <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span>🇸🇬 SG — pending</span><strong>15 btl</strong></div><div class="progress"><div class="progress-fill" style="width:2%;background:var(--amber)"></div></div></div>
+          <div style="margin-top:1rem;padding-top:0.875rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--text-muted)">Total</span><strong>908 bottles</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVOICES -->
+    <div class="page" id="page-invoices">
+      <div class="page-header">
+        <div><div class="page-title">Invoices</div><div class="page-sub">PDF auto-read · due date = upload + 10 days</div></div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-invoice')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Upload
+        </button>
+      </div>
+      <div class="tab-bar">
+        <div class="tab active" onclick="setTab(this)">All (5)</div>
+        <div class="tab" onclick="setTab(this)">Overdue (1)</div>
+        <div class="tab" onclick="setTab(this)">Pending (3)</div>
+        <div class="tab" onclick="setTab(this)">Paid (1)</div>
+      </div>
+      <div class="card" style="overflow-x:auto">
+        <table style="min-width:600px">
+          <thead><tr><th>Client</th><th>CC Ref</th><th>PO</th><th>Wine(s)</th><th>Amount</th><th>Due</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar">WC</div>Wine Clique</div></td><td style="font-size:11px;font-weight:500">CC202605/409</td><td style="font-size:11px;color:var(--text-muted)">—</td><td style="font-size:11px">Boudriotte Blanc Ramonet 2011 ×4</td><td style="font-weight:500">€1,000</td><td style="font-size:11px;color:var(--amber);font-weight:500">4 Jun 2026</td><td><span class="badge badge-pending">Pending</span></td><td><div style="display:flex;gap:4px"><button class="btn btn-sm" onclick="openFollowupModal({client:'Wine Clique',cc:'CC202605/409',po:'—',wine:'Boudriotte Blanc — Domaine Ramonet J-C, Chassagne Montrachet 1er Cru',vintage:'2011',format:'75cl',qty:4,unitPrice:'€250.00',total:'€1,000.00',due:'4 Jun 2026',emails:CLIENTS['Wine Clique'].emails,phone:CLIENTS['Wine Clique'].phone})">Follow-up</button><button class="btn btn-sm btn-green" onclick="markPaid(this)">Paid</button></div></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="background:#2C5E8A">CC</div>Corndale</div></td><td style="font-size:11px;font-weight:500">CC202604/312</td><td style="font-size:11px;color:var(--text-muted)">PO-CC-044</td><td style="font-size:11px">Domaine des Tours Rouge 2019 ×15</td><td style="font-weight:500">€12,400</td><td style="font-size:11px;color:var(--red);font-weight:500">11 Apr 2026</td><td><span class="badge badge-overdue">Overdue</span></td><td><div style="display:flex;gap:4px"><button class="btn btn-sm" onclick="openFollowupModal({client:'Corndale Consultant',cc:'CC202604/312',po:'PO-CC-044',wine:'Domaine des Tours Rouge',vintage:'2019',format:'75cl',qty:15,unitPrice:'€826.67',total:'€12,400.00',due:'11 Apr 2026',emails:CLIENTS['Corndale Consultant'].emails,phone:CLIENTS['Corndale Consultant'].phone})">Follow-up</button><button class="btn btn-sm btn-green" onclick="markPaid(this)">Paid</button></div></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="background:#5B4A8A">AN</div>Angevin</div></td><td style="font-size:11px;font-weight:500">CC202604/298</td><td style="font-size:11px;color:var(--text-muted)">—</td><td style="font-size:11px">Rayas Châteauneuf-du-Pape 2018 ×12</td><td style="font-weight:500">€8,900</td><td style="font-size:11px;color:var(--amber);font-weight:500">15 Apr 2026</td><td><span class="badge badge-pending">Pending</span></td><td><div style="display:flex;gap:4px"><button class="btn btn-sm" onclick="openFollowupModal({client:'Angevin',cc:'CC202604/298',po:'—',wine:'Rayas Châteauneuf-du-Pape',vintage:'2018',format:'75cl',qty:12,unitPrice:'€741.67',total:'€8,900.00',due:'15 Apr 2026',emails:CLIENTS['Angevin'].emails,phone:CLIENTS['Angevin'].phone})">Follow-up</button><button class="btn btn-sm btn-green" onclick="markPaid(this)">Paid</button></div></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="background:#7B3F00">VT</div>Vintage Collectible</div></td><td style="font-size:11px;font-weight:500">CC202603/187</td><td style="font-size:11px;color:var(--text-muted)">PO-VC-012</td><td style="font-size:11px">Pignan Châteauneuf-du-Pape 2019 ×24</td><td style="font-weight:500">€6,350</td><td style="font-size:11px;color:var(--amber);font-weight:500">20 Mar 2026</td><td><span class="badge badge-pending">Pending</span></td><td><div style="display:flex;gap:4px"><button class="btn btn-sm" onclick="openFollowupModal({client:'Vintage Collectible',cc:'CC202603/187',po:'PO-VC-012',wine:'Pignan Châteauneuf-du-Pape',vintage:'2019',format:'75cl',qty:24,unitPrice:'€264.58',total:'€6,350.00',due:'20 Mar 2026',emails:CLIENTS['Vintage Collectible'].emails,phone:CLIENTS['Vintage Collectible'].phone})">Follow-up</button><button class="btn btn-sm btn-green" onclick="markPaid(this)">Paid</button></div></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="background:#2D7A4A">AC</div>Acker</div></td><td style="font-size:11px;font-weight:500">CC202602/099</td><td style="font-size:11px;color:var(--text-muted)">—</td><td style="font-size:11px">Fonsalette Côtes-du-Rhône 2017 ×6</td><td style="font-weight:500">€4,230</td><td style="font-size:11px">11 Feb 2026</td><td><span class="badge badge-paid">Paid</span></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FOLLOW-UPS -->
+    <div class="page" id="page-followup">
+      <div class="page-header">
+        <div><div class="page-title">Follow-ups</div><div class="page-sub">Every Monday — proforma PDF + wine summary</div></div>
+        <button class="btn btn-gold btn-sm" onclick="toast('All follow-ups sent to 3 clients ✓');document.getElementById('followup-badge').style.display=\'none\'">Send all</button>
+      </div>
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-head"><span class="card-title">🔴 Overdue</span></div>
+        <div class="followup-row">
+          <div style="flex:1;min-width:0">
+            <div class="followup-name"><div class="avatar" style="display:inline-flex;margin-right:7px;vertical-align:middle;background:#2C5E8A">CC</div>Corndale Consultant</div>
+            <div class="followup-detail" style="margin-left:37px">CC202604/312 · PO-CC-044 · <strong style="color:var(--navy)">€12,400</strong> · <span style="color:var(--red);font-weight:500">30 days overdue</span></div>
+          </div>
+          <button class="btn btn-sm" onclick="openFollowupModal({client:'Corndale Consultant',cc:'CC202604/312',po:'PO-CC-044',wine:'Domaine des Tours Rouge',vintage:'2019',format:'75cl',qty:15,unitPrice:'€826.67',total:'€12,400.00',due:'11 Apr 2026',emails:CLIENTS['Corndale Consultant'].emails,phone:CLIENTS['Corndale Consultant'].phone})">Preview & Send</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">🟡 Pending</span></div>
+        <div class="followup-row">
+          <div style="flex:1;min-width:0">
+            <div class="followup-name"><div class="avatar" style="display:inline-flex;margin-right:7px;vertical-align:middle">WC</div>Wine Clique</div>
+            <div class="followup-detail" style="margin-left:37px">CC202605/409 · <strong style="color:var(--navy)">€1,000</strong> · Boudriotte Blanc Ramonet 2011 ×4 · <span style="color:var(--amber);font-weight:500">due 4 Jun 2026</span></div>
+          </div>
+          <button class="btn btn-sm" onclick="openFollowupModal({client:'Wine Clique',cc:'CC202605/409',po:'—',wine:'Boudriotte Blanc — Domaine Ramonet J-C, Chassagne Montrachet 1er Cru',vintage:'2011',format:'75cl',qty:4,unitPrice:'€250.00',total:'€1,000.00',due:'4 Jun 2026',emails:CLIENTS['Wine Clique'].emails,phone:CLIENTS['Wine Clique'].phone})">Preview & Send</button>
+        </div>
+        <div class="followup-row">
+          <div style="flex:1;min-width:0">
+            <div class="followup-name"><div class="avatar" style="display:inline-flex;margin-right:7px;vertical-align:middle;background:#5B4A8A">AN</div>Angevin</div>
+            <div class="followup-detail" style="margin-left:37px">CC202604/298 · <strong style="color:var(--navy)">€8,900</strong> · Rayas CdP 2018 ×12 · <span style="color:var(--amber);font-weight:500">due 15 Apr 2026</span></div>
+          </div>
+          <button class="btn btn-sm" onclick="openFollowupModal({client:'Angevin',cc:'CC202604/298',po:'—',wine:'Rayas Châteauneuf-du-Pape',vintage:'2018',format:'75cl',qty:12,unitPrice:'€741.67',total:'€8,900.00',due:'15 Apr 2026',emails:CLIENTS['Angevin'].emails,phone:CLIENTS['Angevin'].phone})">Preview & Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div class="page" id="page-inventory">
+      <div class="page-header">
+        <div><div class="page-title">Wine Stock</div><div class="page-sub">908 bottles — France & Singapore</div></div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-wine')">+ Add wine</button>
+      </div>
+      <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat-card"><div class="stat-label">France 🇫🇷</div><div class="stat-value navy">738</div></div>
+        <div class="stat-card"><div class="stat-label">SG delivered 🇸🇬</div><div class="stat-value green">155</div></div>
+        <div class="stat-card"><div class="stat-label">SG pending 🕐</div><div class="stat-value amber">15</div></div>
+      </div>
+      <div class="card" style="overflow-x:auto">
+        <table style="min-width:540px">
+          <thead><tr><th>Wine</th><th>Vintage</th><th>Qty</th><th>Price €</th><th>Client</th><th>CC Ref</th><th>Location</th></tr></thead>
+          <tbody>
+            <tr><td style="font-weight:500">Domaine des Tours Rouge</td><td>2019</td><td>15</td><td>€109</td><td>Corndale</td><td style="font-size:11px;color:var(--text-muted)">CC202604/312</td><td><span class="badge badge-sg-hold">SG pending</span></td></tr>
+            <tr><td style="font-weight:500">Ch. des Tours Côtes-du-Rhône</td><td>2020</td><td>36</td><td>€98</td><td>Angevin</td><td style="font-size:11px;color:var(--text-muted)">CC202603/201</td><td><span class="badge badge-fr">France</span></td></tr>
+            <tr><td style="font-weight:500">Rayas Châteauneuf-du-Pape</td><td>2018</td><td>12</td><td>€620</td><td>Angevin</td><td style="font-size:11px;color:var(--text-muted)">CC202604/298</td><td><span class="badge badge-fr">France</span></td></tr>
+            <tr><td style="font-weight:500">Pignan Châteauneuf-du-Pape</td><td>2019</td><td>24</td><td>€210</td><td>Vintage Collectible</td><td style="font-size:11px;color:var(--text-muted)">CC202603/187</td><td><span class="badge badge-sg">SG delivered</span></td></tr>
+            <tr><td style="font-weight:500">Boudriotte Blanc Ramonet J-C</td><td>2011</td><td>4</td><td>€250</td><td>Wine Clique</td><td style="font-size:11px;color:var(--text-muted)">CC202605/409</td><td><span class="badge badge-fr">France</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CLIENTS -->
+    <div class="page" id="page-clients">
+      <div class="page-header">
+        <div><div class="page-title">Clients</div><div class="page-sub">13 clients</div></div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-client')">+ Add</button>
+      </div>
+      <div id="clients-list"></div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="page" id="page-export">
+      <div class="page-header">
+        <div><div class="page-title">Export</div><div class="page-sub">CC ref, PO, wines, prices per client</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">Client wine order list</span></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group"><label>Client</label>
+              <select id="export-client">
+                <option value="all">All clients</option>
+                <option>Wine Clique</option><option>Corndale Consultant</option><option>Angevin</option>
+                <option>Acker</option><option>Vintage Collectible</option><option>Vineyard To Table</option>
+                <option>Cru London</option><option>Cru Wine</option><option>Nectar Artisans</option>
+                <option>Harris Greenstein</option><option>Somm Cellars</option><option>Wine Portal</option><option>Li Lin</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Status</label>
+              <select id="export-status"><option value="all">All</option><option value="Pending">Pending</option><option value="Overdue">Overdue</option><option value="Paid">Paid</option></select>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:1rem">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" checked id="col-cc"/> CC reference</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" checked id="col-po"/> PO number</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" checked id="col-wine"/> Wine name & vintage</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" checked id="col-price"/> Unit price & total</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" checked id="col-loc"/> Location</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="col-status2"/> Payment status</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="col-due"/> Due date</label>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="exportExcel()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Download Excel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="page-settings">
+      <div class="page-header"><div><div class="page-title">Settings</div><div class="page-sub">API key for PDF auto-reading</div></div></div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">Claude AI — PDF reading</span><span class="ai-badge">✦ AI powered</span></div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;line-height:1.6">To enable automatic PDF reading, enter your Anthropic API key. Claude will read your proforma invoices and fill in all fields automatically.</p>
+          <div class="form-group" style="margin-bottom:1rem">
+            <label>Anthropic API key</label>
+            <input type="password" id="api-key-input" placeholder="sk-ant-..." style="font-family:monospace"/>
+          </div>
+          <div class="form-group" style="margin-bottom:1rem">
+            <label>Sender name</label>
+            <input type="text" id="sender-name" value="Victor Hovine — Wine RL"/>
+          </div>
+          <div class="form-group" style="margin-bottom:1rem">
+            <label>Sender email</label>
+            <input type="email" id="sender-email" value="victor@winerl.com"/>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save settings</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- MODAL: Upload Invoice -->
+<div class="modal-overlay" id="modal-invoice">
+  <div class="modal">
+    <div class="modal-head"><span class="modal-title">Upload proforma invoice <span class="ai-badge" style="margin-left:6px">✦ AI auto-read</span></span><button class="btn btn-sm" onclick="closeModal('modal-invoice')">✕</button></div>
+    <div class="modal-body">
+      <input type="file" id="pdf-file-input" accept=".pdf" style="display:none" onchange="handlePdfUpload(this)"/>
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('pdf-file-input').click()">
+        <span class="upload-icon" id="upload-icon">📄</span>
+        <div class="upload-label" id="upload-label">Tap to select your proforma PDF</div>
+        <div class="upload-sub" id="upload-sub">Claude AI will read it and fill all fields automatically</div>
+      </div>
+      <div class="parsed-box" id="parsed-box">
+        <div class="parsed-title">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Auto-filled from PDF
+        </div>
+        <div class="parsed-grid" id="parsed-grid"></div>
+      </div>
+      <div class="section-divider">Review & confirm</div>
+      <div class="form-row">
+        <div class="form-group"><label>Client</label>
+          <select id="f-client">
+            <option value="">— select —</option>
+            <option>Wine Clique</option><option>Corndale Consultant</option><option>Angevin</option>
+            <option>Acker</option><option>Vintage Collectible</option><option>Vineyard To Table</option>
+            <option>Cru London</option><option>Cru Wine</option><option>Nectar Artisans</option>
+            <option>Harris Greenstein</option><option>Somm Cellars</option><option>Wine Portal</option><option>Li Lin</option>
+          </select>
+        </div>
+        <div class="form-group"><label>CC reference</label><input type="text" id="f-cc" placeholder="CC202605/409"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>PO number (if any)</label><input type="text" id="f-po" placeholder="Leave blank if none"/></div>
+        <div class="form-group"><label>Total amount</label><input type="text" id="f-amount" placeholder="€1,000.00"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Upload date</label><input type="date" id="f-upload" oninput="autoDue()"/></div>
+        <div class="form-group"><label>Due date (auto +10 days)</label><input type="date" id="f-due"/></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>Wine(s) — name, vintage, qty</label><input type="text" id="f-wine" placeholder="Boudriotte Blanc Ramonet 2011 ×4"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Location</label>
+          <select id="f-loc"><option>🇫🇷 France</option><option>🇸🇬 Singapore — delivered</option><option>🇸🇬 Singapore — pending</option></select>
+        </div>
+        <div class="form-group"><label>Supplier</label><input type="text" value="Wine RL — Salon de Provence" readonly/></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-invoice')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-invoice');toast('Invoice saved ✓')">Save invoice</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Follow-up -->
+<div class="modal-overlay" id="modal-followup">
+  <div class="modal" style="max-width:660px">
+    <div class="modal-head">
+      <span class="modal-title" id="fu-modal-title">Follow-up</span>
+      <button class="btn btn-sm" onclick="closeModal('modal-followup')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tab-bar" style="margin-bottom:1rem">
+        <div class="tab active" id="tab-email-btn" onclick="switchFuTab('email')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Email
+        </div>
+        <div class="tab" id="tab-wa-btn" onclick="switchFuTab('wa')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px;margin-right:4px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>WhatsApp
+        </div>
+      </div>
+      <div id="fu-email-tab">
+        <div class="form-row">
+          <div class="form-group"><label>From</label><input type="email" id="fu-from" value="victor@winerl.com" readonly/></div>
+          <div class="form-group"><label>To</label><input type="email" id="fu-email-to"/></div>
+        </div>
+        <div class="form-group" style="margin-bottom:0.75rem"><label>Subject</label><input type="text" id="fu-email-subject"/></div>
+        <div id="fu-email-body" class="email-box"></div>
+        <div style="margin-top:0.75rem;padding:0.75rem;background:var(--cream);border-radius:7px;border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text-muted)">
+          <span>📎 Proforma PDF attached</span>
+          <span style="background:var(--blue-bg);color:var(--blue);padding:2px 8px;border-radius:10px;font-size:11px" id="fu-pdf-name">invoice.pdf</span>
+        </div>
+      </div>
+      <div id="fu-wa-tab" style="display:none">
+        <div class="email-box" style="border-left-color:#25D366;font-size:12px;line-height:1.7" id="fu-wa-body"></div>
+        <div style="margin-top:0.75rem;font-size:11px;color:var(--text-muted)">Opens WhatsApp Business with this message pre-filled — one tap to send.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-followup')">Cancel</button>
+      <div id="fu-actions"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Wine -->
+<div class="modal-overlay" id="modal-wine">
+  <div class="modal">
+    <div class="modal-head"><span class="modal-title">Add wine to stock</span><button class="btn btn-sm" onclick="closeModal('modal-wine')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row full"><div class="form-group"><label>Wine name</label><input type="text" placeholder="e.g. Rayas Châteauneuf-du-Pape"/></div></div>
+      <div class="form-row">
+        <div class="form-group"><label>Vintage</label><input type="number" placeholder="2019"/></div>
+        <div class="form-group"><label>Format (L)</label><input type="number" placeholder="0.75" step="0.25"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Quantity</label><input type="number" placeholder="12"/></div>
+        <div class="form-group"><label>Unit price €</label><input type="number" placeholder="0.00"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>CC reference</label><input type="text" placeholder="CC202605/409"/></div>
+        <div class="form-group"><label>Client</label>
+          <select><option>Wine Clique</option><option>Corndale Consultant</option><option>Angevin</option><option>Acker</option><option>Vintage Collectible</option><option>Vineyard To Table</option><option>Cru London</option><option>Cru Wine</option><option>Nectar Artisans</option><option>Harris Greenstein</option><option>Somm Cellars</option><option>Wine Portal</option><option>Li Lin</option></select>
+        </div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>Location</label>
+          <select><option>🇫🇷 France</option><option>🇸🇬 Singapore — delivered</option><option>🇸🇬 Singapore — pending delivery</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-wine')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-wine');toast('Wine added ✓')">Add wine</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Client -->
+<div class="modal-overlay" id="modal-client">
+  <div class="modal">
+    <div class="modal-head"><span class="modal-title">Add client</span><button class="btn btn-sm" onclick="closeModal('modal-client')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row full"><div class="form-group"><label>Company / name</label><input type="text" placeholder="e.g. Wine Clique Pte Ltd"/></div></div>
+      <div class="form-row full"><div class="form-group"><label>Email addresses (comma separated)</label><input type="text" placeholder="alice@example.com, bob@example.com"/></div></div>
+      <div class="form-row">
+        <div class="form-group"><label>WhatsApp</label><input type="tel" placeholder="+65 9123 4567"/></div>
+        <div class="form-group"><label>Note</label><input type="text" placeholder="e.g. Payment at 60 days"/></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-client')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-client');toast('Client added ✓')">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CLIENTS = {
+  'Corndale Consultant': {emails:['saad@corndale.com','jenny@corndale.com','herve@corndale.com','LeeKuen@Corndale.com'],phone:'',note:'Paiement à 60 Jours'},
+  'Angevin':             {emails:['nic@bacchic.co','assistant@bacchic.co'],phone:'',note:''},
+  'Wine Clique':         {emails:['alice.wee@wine-clique.com','frida.antony@wine-clique.com','bbtoh@wine-clique.com','shirley.tan@wine-clique.com'],phone:'',note:''},
+  'Acker':               {emails:['George@ackeruk.com','alice@ackeruk.com'],phone:'',note:''},
+  'Vintage Collectible': {emails:['steve@collectiblefinewine.com','ashley@collectiblefinewine.com','shelly@collectiblefinewine.com'],phone:'',note:''},
+  'Vineyard To Table':   {emails:['office@sommselectionmiami.com','sebverrier@sommselectionmiami.com','maud@sommselectionmiami.com'],phone:'',note:''},
+  'Cru London':          {emails:['Jiaqing.lim@cruworldwine.com','accounts@uk.cruworldwine.com','nicola.pagano@cruworldwine.com'],phone:'',note:''},
+  'Cru Wine':            {emails:['accounts@cru-wine.com','s.cutty@cru-wine.com'],phone:'',note:''},
+  'Nectar Artisans':     {emails:['office@nectar.sg'],phone:'',note:''},
+  'Harris Greenstein':   {emails:['hgreenstein1@gmail.com','mdensen@me.com'],phone:'',note:''},
+  'Somm Cellars':        {emails:['william@sommcellarswine.com','ap@sommcellarswine.com'],phone:'',note:''},
+  'Wine Portal':         {emails:['clarus.chua@wineportal.com','nigel@wineportal.com'],phone:'',note:''},
+  'Li Lin':              {emails:['25375288@qq.com'],phone:'',note:''},
+};
+
+const SENDER_NAME = 'Victor Hovine — Wine RL';
+const SENDER_EMAIL = 'victor@winerl.com';
+
+const pages={dashboard:'Dashboard',invoices:'Invoices',followup:'Follow-ups',inventory:'Wine Stock',clients:'Clients',export:'Export',settings:'Settings'};
+
+function nav(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('topbar-title').textContent=pages[id];
+  closeMenu();
+  if(id==='clients') renderClients();
+}
+function openMenu(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebar-overlay').classList.add('open')}
+function closeMenu(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebar-overlay').classList.remove('open')}
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
+function setTab(el){document.querySelectorAll('.tab-bar .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active')}
+function markPaid(btn){const row=btn.closest('tr');row.querySelector('.badge').className='badge badge-paid';row.querySelector('.badge').textContent='Paid';btn.closest('div').innerHTML='';toast('Marked as paid ✓')}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
+function saveSettings(){toast('Settings saved ✓')}
+
+function autoDue(){
+  const v=document.getElementById('f-upload').value;
+  if(!v)return;
+  const d=new Date(v);d.setDate(d.getDate()+10);
+  document.getElementById('f-due').value=d.toISOString().split('T')[0];
+}
+
+function setToday(){
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('f-upload').value=today;
+  autoDue();
+}
+
+// ── PDF UPLOAD & AI PARSING ──────────────────────────────────
+let pdfBase64='';let pdfFileName='';
+function handlePdfUpload(input){
+  const file=input.files[0];
+  if(!file)return;
+  pdfFileName=file.name;
+  const zone=document.getElementById('upload-zone');
+  zone.classList.add('parsing');
+  document.getElementById('upload-icon').textContent='⏳';
+  document.getElementById('upload-label').textContent='Reading PDF with Claude AI…';
+  document.getElementById('upload-sub').textContent='Extracting invoice data automatically';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    pdfBase64=e.target.result.split(',')[1];
+    parsePdfWithClaude(pdfBase64,pdfFileName);
+  };
+  reader.readAsDataURL(file);
+}
+
+async function parsePdfWithClaude(b64,fname){
+  const apiKey=document.getElementById('api-key-input')?document.getElementById('api-key-input').value:'';
+  if(!apiKey){
+    // Fallback: show manual form with filename pre-filled
+    document.getElementById('upload-zone').classList.remove('parsing');
+    document.getElementById('upload-zone').classList.add('has-file');
+    document.getElementById('upload-icon').textContent='📄';
+    document.getElementById('upload-label').textContent=fname;
+    document.getElementById('upload-sub').textContent='No API key set — please fill fields manually (Settings → API key)';
+    setToday();
+    return;
+  }
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{role:'user',content:[
+          {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
+          {type:'text',text:`Extract from this proforma invoice and return ONLY valid JSON, no markdown:
+{"cc":"","po":"","client":"","invoice_date":"DD MMM YYYY","wine":"full wine name","vintage":"YYYY","format":"75cl","qty":0,"unit_price":"€0.00","total":"€0.00"}
+If PO not stated use "—". Client is the buyer company name.`}
+        ]}]
+      })
+    });
+    const data=await resp.json();
+    const text=data.content.map(i=>i.text||'').join('');
+    const clean=text.replace(/```json|```/g,'').trim();
+    const parsed=JSON.parse(clean);
+    fillParsedFields(parsed,fname);
+  }catch(err){
+    console.error(err);
+    document.getElementById('upload-zone').classList.remove('parsing');
+    document.getElementById('upload-zone').classList.add('has-file');
+    document.getElementById('upload-icon').textContent='📄';
+    document.getElementById('upload-label').textContent=fname;
+    document.getElementById('upload-sub').textContent='Could not auto-read — please fill in manually';
+    setToday();
+  }
+}
+
+function fillParsedFields(p,fname){
+  const zone=document.getElementById('upload-zone');
+  zone.classList.remove('parsing');zone.classList.add('has-file');
+  document.getElementById('upload-icon').textContent='✅';
+  document.getElementById('upload-label').textContent=fname;
+  document.getElementById('upload-sub').textContent='Auto-filled from PDF';
+  // Show parsed preview
+  const box=document.getElementById('parsed-box');
+  box.style.display='block';
+  document.getElementById('parsed-grid').innerHTML=`
+    <div class="parsed-item"><label>CC Ref</label><value>${p.cc||'—'}</value></div>
+    <div class="parsed-item"><label>PO</label><value>${p.po||'—'}</value></div>
+    <div class="parsed-item"><label>Client</label><value>${p.client||'—'}</value></div>
+    <div class="parsed-item"><label>Invoice date</label><value>${p.invoice_date||'—'}</value></div>
+    <div class="parsed-item"><label>Wine</label><value>${p.wine||'—'}</value></div>
+    <div class="parsed-item"><label>Vintage / Qty</label><value>${p.vintage||'—'} · ×${p.qty||'—'}</value></div>
+    <div class="parsed-item"><label>Unit price</label><value>${p.unit_price||'—'}</value></div>
+    <div class="parsed-item"><label>Total HT</label><value>${p.total||'—'}</value></div>`;
+  // Fill form fields
+  if(p.cc) document.getElementById('f-cc').value=p.cc;
+  if(p.po) document.getElementById('f-po').value=p.po;
+  if(p.total) document.getElementById('f-amount').value=p.total;
+  if(p.wine&&p.vintage&&p.qty) document.getElementById('f-wine').value=`${p.wine} ${p.vintage} ×${p.qty}`;
+  // Match client
+  const sel=document.getElementById('f-client');
+  const clientLower=(p.client||'').toLowerCase();
+  for(const opt of sel.options){if(opt.value&&clientLower.includes(opt.value.toLowerCase().split(' ')[0])){sel.value=opt.value;break;}}
+  setToday();
+}
+
+// ── FOLLOW-UP MODAL ──────────────────────────────────────────
+let _fu={};
+function openFollowupModal(d){
+  _fu=d;
+  const toEmails=(d.emails||[]).join(', ');
+  document.getElementById('fu-modal-title').textContent='Follow-up — '+d.client;
+  document.getElementById('fu-from').value=SENDER_EMAIL;
+  document.getElementById('fu-email-to').value=toEmails;
+  document.getElementById('fu-email-subject').value='Payment reminder — '+d.cc+(d.po&&d.po!=='—'?' / '+d.po:'');
+  document.getElementById('fu-pdf-name').textContent=pdfFileName||d.cc.replace('/','_')+'.pdf';
+  buildEmailBody(d);buildWaBody(d);buildActions(d,toEmails);
+  switchFuTab('email');
+  openModal('modal-followup');
+}
+function buildEmailBody(d){
+  const po=d.po&&d.po!=='—'?`<br><strong>PO reference:</strong> ${d.po}`:'';
+  document.getElementById('fu-email-body').innerHTML=`
+    Dear ${d.client},<br><br>
+    Please find attached the proforma invoice <strong>${d.cc}</strong>${po}.<br><br>
+    <strong>Order summary:</strong>
+    <table class="email-wine-table">
+      <thead><tr><th>CC Ref</th><th>Wine</th><th>Vintage</th><th>Format</th><th>Qty</th><th>Unit price</th><th>Total HT</th></tr></thead>
+      <tbody><tr><td>${d.cc}</td><td>${d.wine}</td><td>${d.vintage}</td><td>${d.format}</td><td>${d.qty}</td><td>${d.unitPrice}</td><td><strong>${d.total}</strong></td></tr></tbody>
+    </table>
+    <strong>Payment due:</strong> ${d.due}<br><br>
+    Please arrange payment at your earliest convenience. Do not hesitate to contact me for any question.<br><br>
+    Best regards,<br><strong>${SENDER_NAME}</strong><br><span style="color:var(--text-muted)">${SENDER_EMAIL}</span>`;
+}
+function buildWaBody(d){
+  const po=d.po&&d.po!=='—'?`\nPO: ${d.po}`:'';
+  document.getElementById('fu-wa-body').innerHTML=
+    `Hello,<br><br>Following up on invoice *${d.cc}*${po}<br><br>`+
+    `*${d.wine} ${d.vintage}* — ×${d.qty} × ${d.unitPrice}<br>`+
+    `*Total: ${d.total}* · Due: ${d.due}<br><br>`+
+    `Proforma attached. Please let me know if you have any questions 🍷<br><br>`+
+    `${SENDER_NAME}`;
+}
+function buildActions(d,toEmails){
+  const waMsg=encodeURIComponent(
+    `Hello,\n\nFollowing up on invoice *${d.cc}*${d.po&&d.po!=='—'?'\nPO: '+d.po:''}\n\n`+
+    `*${d.wine} ${d.vintage}* — ×${d.qty} × ${d.unitPrice}\n`+
+    `*Total: ${d.total}* · Due: ${d.due}\n\nProforma attached. Let me know if you have any questions 🍷\n\n${SENDER_NAME}`
+  );
+  const phone=(d.phone||'').replace(/[^0-9]/g,'');
+  document.getElementById('fu-actions').innerHTML=`
+    <div id="fu-email-actions">
+      <button class="btn btn-primary btn-sm" onclick="closeModal('modal-followup');toast('Email sent to ${d.client} ✓')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Send email + PDF
+      </button>
+    </div>
+    <div id="fu-wa-actions" style="display:none">
+      ${phone?`<a class="btn btn-whatsapp btn-sm" href="https://wa.me/${phone}?text=${waMsg}" target="_blank">Open WhatsApp</a>`:`<button class="btn btn-sm" onclick="toast('No WhatsApp number saved for this client — add it in Clients')">No number saved</button>`}
+    </div>`;
+}
+function switchFuTab(tab){
+  document.getElementById('fu-email-tab').style.display=tab==='email'?'block':'none';
+  document.getElementById('fu-wa-tab').style.display=tab==='wa'?'block':'none';
+  document.getElementById('fu-email-actions').style.display=tab==='email'?'inline-flex':'none';
+  document.getElementById('fu-wa-actions').style.display=tab==='wa'?'inline-flex':'none';
+  document.getElementById('tab-email-btn').classList.toggle('active',tab==='email');
+  document.getElementById('tab-wa-btn').classList.toggle('active',tab==='wa');
+}
+
+// ── CLIENTS PAGE ─────────────────────────────────────────────
+function renderClients(){
+  const container=document.getElementById('clients-list');
+  container.innerHTML='';
+  Object.entries(CLIENTS).forEach(([name,c])=>{
+    const initials=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const colors=['#1C2B3A','#2C5E8A','#5B4A8A','#7B3F00','#2D7A4A','#1A5F9E','#8B2252','#3D5A3E','#6B4226','#1B6B6B','#5C4033','#2E4057','#7D4E57'];
+    const color=colors[Object.keys(CLIENTS).indexOf(name)%colors.length];
+    const emailList=c.emails.join('<br>');
+    const note=c.note?`<span style="background:var(--amber-bg);color:var(--amber);font-size:10px;padding:1px 7px;border-radius:10px;margin-left:8px">${c.note}</span>`:'';
+    container.innerHTML+=`
+      <div class="card" style="margin-bottom:0.75rem">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:0.875rem 1rem">
+          <div class="avatar" style="background:${color};flex-shrink:0;width:36px;height:36px;font-size:12px">${initials}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500;color:var(--navy)">${name}${note}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.6">${emailList}</div>
+          </div>
+          <button class="btn btn-sm" onclick="openFollowupModal({client:'${name}',cc:'—',po:'—',wine:'—',vintage:'—',format:'75cl',qty:0,unitPrice:'—',total:'—',due:'—',emails:CLIENTS['${name}'].emails,phone:CLIENTS['${name}'].phone})">Follow-up</button>
+        </div>
+      </div>`;
+  });
+}
+
+// ── EXPORT ───────────────────────────────────────────────────
+function exportExcel(){
+  const client=document.getElementById('export-client').value;
+  const allData=[
+    {client:'Wine Clique',cc:'CC202605/409',po:'—',wine:'Boudriotte Blanc — Domaine Ramonet J-C',vintage:'2011',format:'75cl',qty:4,unitPrice:'€250.00',total:'€1,000.00',location:'France 🇫🇷',status:'Pending',due:'4 Jun 2026'},
+    {client:'Corndale Consultant',cc:'CC202604/312',po:'PO-CC-044',wine:'Domaine des Tours Rouge',vintage:'2019',format:'75cl',qty:15,unitPrice:'€826.67',total:'€12,400.00',location:'Singapore 🇸🇬',status:'Overdue',due:'11 Apr 2026'},
+    {client:'Angevin',cc:'CC202604/298',po:'—',wine:'Rayas Châteauneuf-du-Pape',vintage:'2018',format:'75cl',qty:12,unitPrice:'€741.67',total:'€8,900.00',location:'France 🇫🇷',status:'Pending',due:'15 Apr 2026'},
+    {client:'Vintage Collectible',cc:'CC202603/187',po:'PO-VC-012',wine:'Pignan Châteauneuf-du-Pape',vintage:'2019',format:'75cl',qty:24,unitPrice:'€264.58',total:'€6,350.00',location:'Singapore 🇸🇬',status:'Pending',due:'20 Mar 2026'},
+    {client:'Acker',cc:'CC202602/099',po:'—',wine:'Fonsalette Côtes-du-Rhône',vintage:'2017',format:'1.5L',qty:6,unitPrice:'€705.00',total:'€4,230.00',location:'France 🇫🇷',status:'Paid',due:'11 Feb 2026'},
+  ];
+  const inclCC=document.getElementById('col-cc').checked;
+  const inclPO=document.getElementById('col-po').checked;
+  const inclWine=document.getElementById('col-wine').checked;
+  const inclPrice=document.getElementById('col-price').checked;
+  const inclLoc=document.getElementById('col-loc').checked;
+  const inclStatus=document.getElementById('col-status2').checked;
+  const inclDue=document.getElementById('col-due').checked;
+  const rows=allData.filter(r=>client==='all'||r.client===client).map(r=>{
+    const row={};
+    row['Client']=r.client;
+    if(inclCC)row['CC Reference']=r.cc;
+    if(inclPO)row['PO Number']=r.po;
+    if(inclWine){row['Wine']=r.wine;row['Vintage']=r.vintage;row['Format']=r.format;row['Qty']=r.qty}
+    if(inclPrice){row['Unit Price']=r.unitPrice;row['Total HT']=r.total}
+    if(inclLoc)row['Location']=r.location;
+    if(inclStatus)row['Status']=r.status;
+    if(inclDue)row['Due Date']=r.due;
+    return row;
+  });
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Wine Orders');
+  const fname=(client==='all'?'All_Clients':client.replace(/\s+/g,'_'))+'_Wine_Orders.xlsx';
+  XLSX.writeFile(wb,fname);
+  toast('Exported: '+fname+' ✓');
+}
+</script>
+</body>
+</html>
